@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EPA Battleship</title>
+    <title>Battleship EPA</title>
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google API Client -->
@@ -334,12 +334,20 @@
         <div id="ui-layer">
             <div id="top-bar" style="display: none;">
                 <div class="stat-box">
+                    <div class="stat-label">Player</div>
+                    <div class="stat-value" id="player-name" style="font-size: 14px; color: #4facfe;">Guest</div>
+                </div>
+                <div class="stat-box">
                     <div class="stat-label">Score</div>
                     <div class="stat-value" id="score">0</div>
                 </div>
                 <div class="stat-box">
+                    <div class="stat-label">Failed</div>
+                    <div class="stat-value" id="failed" style="color: #ff6b6b;">0</div>
+                </div>
+                <div class="stat-box">
                     <div class="stat-label">Time</div>
-                    <div class="stat-value" id="timer">60</div>
+                    <div class="stat-value" id="timer">20</div>
                 </div>
                 <div class="stat-box">
                     <div class="stat-label">Molecule</div>
@@ -358,7 +366,7 @@
         <div id="menu-overlay" class="overlay">
             <img src="epa-molecule.png" alt="EPA Molecule"
                 style="width: 200px; height: auto; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(79, 172, 254, 0.6));">
-            <h1>EPA Battleship</h1>
+            <h1>Battleship EPA</h1>
             <p class="slogan">Test Your Fatty Acid Absorption Skills</p>
 
             <!-- Google Login Section -->
@@ -416,8 +424,9 @@
             <div class="modal-box">
                 <h2 style="color: #fff; margin-top: 0;">Simulation Complete</h2>
                 <div style="font-size: 18px; color: #aaa; margin-bottom: 10px;">Final Bio-Availability Score</div>
-                <div id="final-score" style="font-size: 48px; color: #4facfe; font-weight: bold; margin-bottom: 20px;">0
+                <div id="final-score" style="font-size: 48px; color: #4facfe; font-weight: bold; margin-bottom: 10px;">0
                 </div>
+                <div id="final-failed" style="font-size: 16px; color: #ff6b6b; margin-bottom: 20px;">Failed: 0</div>
 
                 <!-- Save Score Button -->
                 <button id="save-score-btn" class="action-btn btn-save" onclick="saveScoreToSheet()" disabled>
@@ -431,7 +440,7 @@
 
                 <div style="margin-top: 20px;">
                     <button class="action-btn btn-primary" onclick="quitToMenu()">Main Menu</button>
-                    <button class="action-btn btn-secondary" onclick="location.reload()">Replay</button>
+                    <button class="action-btn btn-secondary" onclick="startGame(difficulty)">Play Again</button>
                 </div>
             </div>
         </div>
@@ -448,14 +457,18 @@
         const gameOverOverlay = document.getElementById('game-over-overlay');
         const topBar = document.getElementById('top-bar');
         const finalScoreEl = document.getElementById('final-score');
+        const finalFailedEl = document.getElementById('final-failed');
         const messageArea = document.getElementById('message-area');
         const saveScoreBtn = document.getElementById('save-score-btn');
         const saveStatus = document.getElementById('save-status');
+        const failedEl = document.getElementById('failed');
+        const playerNameEl = document.getElementById('player-name');
 
         let animationId;
         let lastTime = 0;
         let score = 0;
-        let timeLeft = 60;
+        let failed = 0;
+        let timeLeft = 20;
         let gameActive = false;
         let isPaused = false;
         let lastTimerUpdate = 0;
@@ -597,10 +610,12 @@
                 signedInView.style.display = 'block';
                 userAvatar.src = currentUser.picture || '';
                 userName.textContent = currentUser.name || 'Player';
+                playerNameEl.textContent = currentUser.name ? currentUser.name.split(' ')[0] : 'Player';
                 saveScoreBtn.disabled = false;
             } else {
                 signedOutView.style.display = 'block';
                 signedInView.style.display = 'none';
+                playerNameEl.textContent = 'Guest';
                 saveScoreBtn.disabled = true;
             }
         }
@@ -609,6 +624,14 @@
             if (!currentUser) {
                 saveStatus.textContent = 'Please sign in first';
                 saveStatus.className = 'save-status error';
+                return;
+            }
+
+            // Check if we have a valid token
+            if (!gapi.client.getToken()) {
+                saveStatus.textContent = 'Session expired. Signing in again...';
+                saveStatus.className = 'save-status loading';
+                handleGoogleSignIn();
                 return;
             }
 
@@ -621,6 +644,7 @@
                 currentUser.name,
                 currentUser.email,
                 score,
+                failed,
                 currentConfig.name,
                 timestamp
             ]];
@@ -628,7 +652,7 @@
             try {
                 await gapi.client.sheets.spreadsheets.values.append({
                     spreadsheetId: SPREADSHEET_ID,
-                    range: 'Sheet1!A:E',
+                    range: 'Sheet1!A:F',
                     valueInputOption: 'USER_ENTERED',
                     resource: { values: values }
                 });
@@ -637,7 +661,17 @@
                 saveStatus.className = 'save-status success';
             } catch (error) {
                 console.error('Error saving score:', error);
-                saveStatus.textContent = '✗ Failed to save. Try again.';
+                let errorMsg = '✗ Failed to save.';
+                if (error.result && error.result.error) {
+                    if (error.result.error.code === 403) {
+                        errorMsg = '✗ No permission. Share spreadsheet with your email.';
+                    } else if (error.result.error.code === 404) {
+                        errorMsg = '✗ Spreadsheet not found.';
+                    } else {
+                        errorMsg = '✗ ' + error.result.error.message;
+                    }
+                }
+                saveStatus.textContent = errorMsg;
                 saveStatus.className = 'save-status error';
                 saveScoreBtn.disabled = false;
             }
@@ -787,8 +821,10 @@
             molecule.color = currentConfig.color;
 
             score = 0;
-            timeLeft = 60;
+            failed = 0;
+            timeLeft = 20;
             scoreEl.textContent = score;
+            failedEl.textContent = failed;
             timerEl.textContent = timeLeft;
 
             resetMolecule();
@@ -831,6 +867,8 @@
             gameOverOverlay.style.display = 'none';
             topBar.style.display = 'none';
             menuOverlay.style.display = 'flex';
+            // Update auth UI to show current user state
+            updateAuthUI();
         }
 
         function resetMolecule() {
@@ -856,6 +894,7 @@
         function endGame() {
             gameActive = false;
             finalScoreEl.textContent = score;
+            finalFailedEl.textContent = `Failed: ${failed}`;
             gameOverOverlay.style.display = 'flex';
             topBar.style.display = 'none';
 
@@ -988,6 +1027,8 @@
                         if (molecule.insideCell === cell.id) {
                             molecule.state = 'dying';
                             molecule.insideCell = null;
+                            failed++;
+                            failedEl.textContent = failed;
                             showMessage("PASSED THROUGH", '#ff4444');
 
                             for (let i = 0; i < 8; i++) {
