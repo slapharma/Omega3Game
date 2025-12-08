@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Battleship EPA</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -770,7 +770,8 @@
                     <div class="avatar-grid">
                         <div class="avatar-option selected" data-avatar="classic" onclick="selectAvatar('classic')">
                             <canvas class="avatar-preview" id="avatar-classic"></canvas><span
-                                class="avatar-name">Classic</span></div>
+                                class="avatar-name">Classic</span>
+                        </div>
                         <div class="avatar-option" data-avatar="neon" onclick="selectAvatar('neon')"><canvas
                                 class="avatar-preview" id="avatar-neon"></canvas><span class="avatar-name">Neon</span>
                         </div>
@@ -787,7 +788,8 @@
                 </div>
                 <div class="menu-section">
                     <div class="section-title">Choose Game Duration</div>
-                    <div class="time-selector"><button class="time-btn active" data-time="20" onclick="selectTime(20)">20
+                    <div class="time-selector"><button class="time-btn active" data-time="20"
+                            onclick="selectTime(20)">20
                             sec</button><button class="time-btn" data-time="30" onclick="selectTime(30)">30
                             sec</button><button class="time-btn" data-time="60" onclick="selectTime(60)">60 sec</button>
                     </div>
@@ -1001,7 +1003,9 @@
 
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } window.addEventListener('resize', resize); resize();
         canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); const touch = e.touches[0]; mouse.x = touch.clientX; mouse.y = touch.clientY; }, { passive: false });
         canvas.addEventListener('mousedown', () => { if (!gameActive || isPaused || molecule.state !== 'active') return; boostMolecule(); });
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); if (!gameActive || isPaused || molecule.state !== 'active') return; const touch = e.touches[0]; mouse.x = touch.clientX; mouse.y = touch.clientY; boostMolecule(); }, { passive: false });
 
         function boostMolecule() { const dx = mouse.x - molecule.x, dy = mouse.y - molecule.y, dist = Math.sqrt(dx * dx + dy * dy); const thrust = powerupActive ? currentConfig.thrust * 2 : currentConfig.thrust; if (dist > 0) { molecule.vx += (dx / dist) * thrust; molecule.vy += (dy / dist) * thrust; } const style = AVATARS[selectedAvatar]; for (let i = 0; i < 5; i++) particles.push({ x: molecule.x, y: molecule.y, vx: -molecule.vx * 0.5 + (Math.random() - 0.5), vy: -molecule.vy * 0.5 + (Math.random() - 0.5), life: 0.6, color: powerupActive ? '#10b981' : style.primary, size: Math.random() * 3 }); }
 
