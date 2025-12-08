@@ -1023,12 +1023,32 @@
 
         async function loadLeaderboard() {
             try {
+                if (!gapiInited || !currentUser) throw new Error('Not signed in');
                 const response = await gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range: 'Sheet1!A:C' });
                 const rows = response.result.values || [];
-                if (rows.length <= 1) { leaderboardEl.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>'; return; }
+                if (rows.length <= 1) throw new Error('No global scores');
                 const scores = rows.slice(1).map(r => ({ name: r[0], score: parseInt(r[2]) || 0 })).sort((a, b) => b.score - a.score).slice(0, 5);
                 leaderboardEl.innerHTML = scores.map((s, i) => `<div class="leaderboard-item"><div class="leaderboard-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${i + 1}</div><div class="leaderboard-name">${s.name}</div><div class="leaderboard-score">${s.score}</div></div>`).join('');
-            } catch (e) { leaderboardEl.innerHTML = '<div class="leaderboard-empty">Sign in to view leaderboard</div>'; }
+            } catch (e) {
+                const localScores = getLocalLeaderboard();
+                if (localScores.length === 0) {
+                    leaderboardEl.innerHTML = '<div class="leaderboard-empty">No scores yet. Play to set a record!</div>';
+                } else {
+                    leaderboardEl.innerHTML = localScores.map((s, i) => `<div class="leaderboard-item"><div class="leaderboard-rank ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${i + 1}</div><div class="leaderboard-name">${s.name}</div><div class="leaderboard-score">${s.score}</div></div>`).join('');
+                }
+            }
+        }
+
+        function saveLocalScore(name, score) {
+            const scores = JSON.parse(localStorage.getItem('epa_battleship_scores') || '[]');
+            scores.push({ name, score, date: new Date().toISOString() });
+            scores.sort((a, b) => b.score - a.score);
+            localStorage.setItem('epa_battleship_scores', JSON.stringify(scores.slice(0, 50)));
+            loadLeaderboard();
+        }
+
+        function getLocalLeaderboard() {
+            return JSON.parse(localStorage.getItem('epa_battleship_scores') || '[]').slice(0, 5);
         }
 
         async function saveScoreToSheet() {
@@ -1081,7 +1101,26 @@
         function resetMolecule() { molecule.x = canvas.width / 2; molecule.y = canvas.height / 2; molecule.vx = 0; molecule.vy = 0; molecule.state = 'active'; molecule.opacity = 1.0; molecule.insideCell = null; }
         function showMessage(text, color) { messageArea.textContent = text; messageArea.style.color = color || '#333'; messageArea.style.textShadow = `0 4px 20px ${color || 'rgba(0,0,0,0.2)'}`; messageArea.style.opacity = 1; setTimeout(() => { messageArea.style.opacity = 0; }, 800); }
 
-        function endGame() { gameActive = false; const playerName = playerNameInput.value.trim() || 'Guest'; playerSpotlight.textContent = playerName; finalScoreEl.textContent = score; finalFailedEl.textContent = `Failed: ${failed}`; const grade = getGrade(score, failed); gradeBadge.textContent = grade; gradeBadge.className = `grade-badge grade-${grade.toLowerCase()}`; gameOverOverlay.style.display = 'flex'; topBar.style.display = 'none'; gameHint.style.display = 'none'; powerupIndicator.style.display = 'none'; saveStatus.textContent = ''; saveStatus.className = 'save-status'; if (currentUser && accessToken) saveScoreBtn.disabled = false; }
+        function endGame() {
+            gameActive = false;
+            const playerName = playerNameInput.value.trim() || 'Guest';
+            playerSpotlight.textContent = playerName;
+            finalScoreEl.textContent = score;
+            finalFailedEl.textContent = `Failed: ${failed}`;
+            const grade = getGrade(score, failed);
+            gradeBadge.textContent = grade;
+            gradeBadge.className = `grade-badge grade-${grade.toLowerCase()}`;
+            gameOverOverlay.style.display = 'flex';
+            topBar.style.display = 'none';
+            gameHint.style.display = 'none';
+            powerupIndicator.style.display = 'none';
+            saveStatus.textContent = '';
+            saveStatus.className = 'save-status';
+
+            saveLocalScore(playerName, score); // Auto-save locally
+
+            if (currentUser && accessToken) saveScoreBtn.disabled = false;
+        }
 
         function drawMolecule(c, x, y, opacity, vibration, size) { const style = AVATARS[selectedAvatar]; c.save(); const jx = (Math.random() - 0.5) * vibration, jy = (Math.random() - 0.5) * vibration; c.translate(x + jx, y + jy); const speed = Math.sqrt(molecule.vx * molecule.vx + molecule.vy * molecule.vy); if (speed > 0.1) c.rotate(Math.atan2(molecule.vy, molecule.vx)); c.shadowBlur = powerupActive ? 40 : 20 + speed * 5; c.shadowColor = powerupActive ? '#34d399' : style.glow; c.globalAlpha = opacity; c.beginPath(); c.arc(0, 0, size / 2 + 5, 0, Math.PI * 2); c.strokeStyle = style.primary; c.lineWidth = 3; c.stroke(); if (epaImage.complete) c.drawImage(epaImage, -size / 2, -size / 2, size, size); c.shadowBlur = 0; c.restore(); }
 
