@@ -266,9 +266,11 @@
             border-radius: 16px;
             cursor: pointer;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
+            padding: 5px;
+            gap: 5px;
         }
 
         .avatar-option.selected {
@@ -276,13 +278,11 @@
         }
 
         .avatar-preview {
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
         }
 
         .avatar-name {
-            position: absolute;
-            bottom: 5px;
             font-size: 9px;
             font-weight: 600;
             color: var(--text-muted);
@@ -708,37 +708,57 @@
 
         @media (max-width: 600px) {
             #top-bar {
-                padding: 8px 12px;
-                gap: 8px;
-                max-width: 95vw;
+                padding: 6px 10px;
+                gap: 4px;
+                max-width: 98vw;
+                justify-content: space-between;
+                width: 100%;
             }
 
             .stat-box {
-                padding: 0 4px;
+                padding: 0 2px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
             }
 
             .stat-label {
-                font-size: 8px;
+                display: none;
             }
 
             .stat-value {
-                font-size: 16px;
+                font-size: 14px;
+            }
+
+            #current-molecule {
+                display: none;
             }
 
             .timer-circle {
-                width: 40px;
-                height: 40px;
+                width: 36px;
+                height: 36px;
             }
 
             .timer-circle svg {
-                width: 40px;
-                height: 40px;
+                width: 36px;
+                height: 36px;
+            }
+
+            .timer-circle .timer-text {
+                font-size: 12px;
             }
 
             #stop-btn {
-                width: 36px;
-                height: 36px;
-                font-size: 14px;
+                width: 32px;
+                height: 32px;
+                font-size: 12px;
+            }
+
+            #player-name-display {
+                max-width: 50px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
         }
     </style>
