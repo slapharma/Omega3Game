@@ -740,7 +740,7 @@
                             <circle class="timer-progress" id="timer-progress" cx="25" cy="25" r="20"
                                 stroke-dasharray="125.6" stroke-dashoffset="0" />
                         </svg>
-                        <div class="timer-text" id="timer">60</div>
+                        <div class="timer-text" id="timer">20</div>
                     </div>
                 </div>
                 <div class="stat-box">
@@ -787,8 +787,8 @@
                 </div>
                 <div class="menu-section">
                     <div class="section-title">Choose Game Duration</div>
-                    <div class="time-selector"><button class="time-btn" data-time="15" onclick="selectTime(15)">15
-                            sec</button><button class="time-btn active" data-time="30" onclick="selectTime(30)">30
+                    <div class="time-selector"><button class="time-btn active" data-time="20" onclick="selectTime(20)">20
+                            sec</button><button class="time-btn" data-time="30" onclick="selectTime(30)">30
                             sec</button><button class="time-btn" data-time="60" onclick="selectTime(60)">60 sec</button>
                     </div>
                 </div>
@@ -915,7 +915,7 @@
         const playerNameInput = document.getElementById('player-name-input'), powerupIndicator = document.getElementById('powerup-indicator');
         const playerSpotlight = document.getElementById('player-spotlight'), leaderboardEl = document.getElementById('leaderboard');
 
-        let animationId, lastTime = 0, score = 0, failed = 0, timeLeft = 30, maxTime = 30, selectedTime = 30;
+        let animationId, lastTime = 0, score = 0, failed = 0, timeLeft = 20, maxTime = 20, selectedTime = 20;
         let gameActive = false, isPaused = false, lastTimerUpdate = 0, lastStemCellSpawn = 0;
         let currentUser = null, tokenClient = null, gapiInited = false, gisInited = false, accessToken = null;
         let powerupActive = false, powerupEndTime = 0, baseMoleculeSize = 60, stemCell = null, selectedAvatar = 'classic';
@@ -977,12 +977,24 @@
             if (!currentUser || !accessToken) { saveStatus.textContent = 'Sign in first'; saveStatus.className = 'save-status error'; return; }
             saveStatus.textContent = 'Saving...'; saveStatus.className = 'save-status loading'; saveScoreBtn.disabled = true;
             try {
-                await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A:F:append?valueInputOption=USER_ENTERED`, {
+                const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/Sheet1!A:F:append?valueInputOption=USER_ENTERED`, {
                     method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ values: [[currentUser.name, currentUser.email, score, failed, currentConfig.name, new Date().toLocaleString()]] })
                 });
+                const result = await response.json();
+                if (result.error) {
+                    throw result.error;
+                }
                 saveStatus.textContent = '✓ Saved!'; saveStatus.className = 'save-status success';
-            } catch (e) { console.error(e); saveStatus.textContent = '✗ Failed'; saveStatus.className = 'save-status error'; saveScoreBtn.disabled = false; }
+            } catch (e) {
+                console.error(e);
+                let msg = '✗ Failed';
+                if (e.code === 403) msg = '✗ Permission denied (Share sheet)';
+                if (e.code === 404) msg = '✗ Sheet not found';
+                saveStatus.textContent = msg;
+                saveStatus.className = 'save-status error';
+                saveScoreBtn.disabled = false;
+            }
         }
 
         window.addEventListener('load', () => { drawAvatarPreviews(); const g1 = setInterval(() => { if (typeof gapi !== 'undefined') { clearInterval(g1); gapiLoaded(); } }, 100); const g2 = setInterval(() => { if (typeof google !== 'undefined' && google.accounts) { clearInterval(g2); gisLoaded(); } }, 100); });
